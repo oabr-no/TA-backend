@@ -1,7 +1,13 @@
 from playwright.sync_api import Page
 from playwright.sync_api._generated import Locator
 
+from src.scraper import skansom
+
 TIMEOUT = 10000
+
+
+class KamplisteFeil(Exception):
+    """Kamplisten for en klasse kunne ikke hentes fullstendig."""
 
 
 def hent_kamper_klasse(page: Page, tournament_id: int) -> tuple[str, set[int]]:
@@ -13,6 +19,7 @@ def hent_kamper_klasse(page: Page, tournament_id: int) -> tuple[str, set[int]]:
     sesong = ""
 
     try:
+        skansom.pause()
         page.goto(url)
 
         page.wait_for_selector(
@@ -26,6 +33,9 @@ def hent_kamper_klasse(page: Page, tournament_id: int) -> tuple[str, set[int]]:
             .inner_text()
             .strip()
         )
+
+        if not sesong:
+            raise ValueError("fant ikke sesongnavnet på siden")
 
         while True:
             target_selector: str = 'a[href*="MatchDetails/Overview/"]'
@@ -59,19 +69,18 @@ def hent_kamper_klasse(page: Page, tournament_id: int) -> tuple[str, set[int]]:
             if "disabled" in li_classes or neste_knapp.is_disabled():
                 break
 
+            skansom.pause()
             neste_knapp.click()
 
             if forste_lenke:
-                try:
-                    page.wait_for_function(
-                        f"document.querySelector('{target_selector}').getAttribute('href') !== '{forste_lenke}'",
-                        timeout=TIMEOUT,
-                    )
-                except Exception:
-                    print("Tidsavbrudd under venting på neste side. Går videre.")
-                    break
+                page.wait_for_function(
+                    f"document.querySelector('{target_selector}').getAttribute('href') !== '{forste_lenke}'",
+                    timeout=TIMEOUT,
+                )
 
     except Exception as e:
-        print(f"\n[FEIL] Kunne ikke hente kamp-liste for {tournament_id}: {e}")
+        raise KamplisteFeil(
+            f"Kunne ikke hente kamplisten for klasse {tournament_id}: {e}"
+        ) from e
 
     return (sesong, alle_kampid)

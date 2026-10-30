@@ -8,6 +8,10 @@ wheels/
 *.egg-info
 *.db
 .env
+state.json
 
 # Virtual environments
 .venv
+
+# Skrapede data og manifester (personopplysninger)
+data/
